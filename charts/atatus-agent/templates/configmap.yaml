@@ -1,0 +1,40 @@
+{{- if and .Values.daemonset.enabled .Values.daemonset.atatusConfig }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "atatus-agent.fullname" . }}-daemonset-config
+  labels:
+    app: "{{ template "atatus-agent.fullname" . }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+data:
+{{- range $path, $config := .Values.daemonset.atatusConfig }}
+  {{ $path }}: |
+{{- range $line := splitList "\n" $config }}
+    {{ tpl $line $ }}
+{{- end }}
+{{- end -}}
+{{- end -}}
+
+{{- if and .Values.deployment.enabled .Values.deployment.atatusConfig }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "atatus-agent.fullname" . }}-deployment-config
+  labels:
+    app: "{{ template "atatus-agent.fullname" . }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service | quote }}
+    release: {{ .Release.Name | quote }}
+data:
+{{- range $path, $config := .Values.deployment.atatusConfig }}
+{{- $filename := (splitList "/" $path) | last }}
+  {{ $filename }}: |
+{{- range $line := splitList "\n" $config }}
+    {{ tpl $line $ }}
+{{- end }}
+{{- end -}}
+{{- end -}}

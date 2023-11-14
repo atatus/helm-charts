@@ -1,0 +1,285 @@
+# Default values for atatus-agent.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+image: "atatus/atatus-infra-agent"
+imageTag: "" # rewrites Chart.AppVersion
+imagePullPolicy: "IfNotPresent"
+
+updateStrategy: RollingUpdate
+
+terminationGracePeriod: 30
+hostPathRoot: /var/lib
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount: ""
+podSecurityContext: {}
+  # fsGroup: 2000
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+# livenessProbe:
+#   exec:
+#     command:
+#       - sh
+#       - -c
+#       - |
+#         #!/usr/bin/env bash -e
+#         curl --fail 127.0.0.1:8045
+#   failureThreshold: 3
+#   initialDelaySeconds: 10
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+
+# readinessProbe:
+#   exec:
+#     command:
+#       - sh
+#       - -c
+#       - |
+#         #!/usr/bin/env bash -e
+#         atatus-infra-agent test output
+#   failureThreshold: 3
+#   initialDelaySeconds: 10
+#   periodSeconds: 10
+#   timeoutSeconds: 5
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # requests:
+  #  cpu: 100m
+  #  memory: 100Mi
+  # limits:
+  #  cpu: 100m
+  #  memory: 200Mi
+
+atatus:
+  # Configure atatus license key
+  license_key: ""
+
+  # Sets log level. The default log level is info.
+  # Available log levels are: error, warning, info, verbose
+  log_level: info
+
+  # Enable to monitor logs
+  logs_enabled: false
+
+  # endpoint for different cloud setup
+  notify_url: ""
+  log_notify_url: ""
+  proxy_url: ""
+
+  # k8s cluster name
+  clusterName: "default"
+
+  metrics:
+    hosts: ["https://${NODE_NAME}:10250"]
+    bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    ssl_certificate_authorities: "none"
+
+  state_metrics:
+    enabled: true
+    hosts: []
+
+  apiserver:
+    enabled: true
+    hosts: ["http://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"]
+    bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    ssl_certificate_authorities: "none"
+
+  proxy:
+    enabled: true
+    hosts: ["localhost:10249"]
+
+  controllermanager:
+    enabled: true
+    hosts: ["localhost:10252"]
+
+  scheduler:
+    enabled: true
+    hosts: ["localhost:10251"]
+
+
+clusterRoleRules:
+  - apiGroups: [""]
+    resources:
+    - nodes
+    - namespaces
+    - events
+    - pods
+    - services
+    - persistentvolumes
+    - persistentvolumeclaims
+    verbs: ["get", "list", "watch"]
+  # Enable this rule only if planing to use Kubernetes keystore
+  #- apiGroups: [""]
+  #  resources:
+  #  - secrets
+  #  verbs: ["get"]
+  - apiGroups: ["extensions"]
+    resources:
+    - replicasets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+    - statefulsets
+    - deployments
+    - replicasets
+    - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+    - jobs
+    - cronjobs
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - storageclasses
+    verbs: ["get", "list", "watch"]
+  - apiGroups:
+    - ""
+    resources:
+    - nodes/stats
+    verbs:
+    - get
+  - nonResourceURLs:
+    - "/metrics"
+    verbs:
+    - get
+
+daemonset:
+  enabled: true
+
+  # Annotations to apply to the daemonset
+  annotations: {}
+
+  # additionals labels
+  labels: {}
+  affinity: {}
+  nodeSelector: {}
+  tolerations: []
+
+  hostNetworking: false
+
+  atatusConfig:
+    atatus.yml: |-
+      # /etc/atatus-infra-agent/atatus.yml
+
+      # General
+      license_key: {{ .Values.atatus.license_key }}
+
+      # Sets log level. The default log level is info.
+      # Available log levels are: error, warning, info, verbose
+      log_level: {{ .Values.atatus.log_level }}
+
+      labels: {cluster_name: {{ .Values.atatus.clusterName }}}
+
+      # eg: ["aws-eu", "web-tier"]
+      tags: []
+
+      logs_enabled: {{ .Values.atatus.logs_enabled }}
+
+      notify_url: {{ .Values.atatus.notify_url }}
+      log_notify_url: {{ .Values.atatus.log_notify_url }}
+      proxy_url: {{ .Values.atatus.proxy_url }}
+
+    kubernetes.yml: |-
+      metrics:
+        - metrics:
+            hosts: [{{- range $index, $host := .Values.atatus.metrics.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+            bearer_token_file: {{ .Values.atatus.metrics.bearer_token_file }}
+            ssl_certificate_authorities: {{ .Values.atatus.metrics.ssl_certificate_authorities }}
+
+          state_metrics:
+            enabled: {{ .Values.atatus.state_metrics.enabled }}
+            hosts: [{{ template "state-metrics.fullname" . }}]
+
+          apiserver:
+            enabled: {{ .Values.atatus.apiserver.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.apiserver.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+            bearer_token_file: {{ .Values.atatus.apiserver.bearer_token_file }}
+            ssl_certificate_authorities: {{ .Values.atatus.apiserver.ssl_certificate_authorities }}
+
+          proxy:
+            enabled: {{ .Values.atatus.proxy.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.proxy.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+
+          controllermanager:
+            enabled: {{ .Values.atatus.controllermanager.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.controllermanager.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+
+          scheduler:
+            enabled: {{ .Values.atatus.scheduler.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.scheduler.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+
+      logs:
+        - type: container
+
+  securityContext:
+    runAsUser: 0
+    privileged: false
+  # agents.containers.resources -- Resource requests and limits for the agent container
+  resources: {}
+    # requests:
+    #   cpu: 100m
+    #   memory: 200Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 200Mi
+
+deployment:
+  enabled: false
+
+  # Annotations to apply to the deployment
+  annotations: {}
+
+  # additionals labels
+  labels: {}
+  affinity: {}
+  nodeSelector: {}
+  tolerations: []
+
+  atatusConfig:
+    atatus.yml: |-
+      # /etc/atatus-infra-agent/atatus.yml
+
+      # General
+      license_key: {{ .Values.atatus.license_key }}
+
+      # Sets log level. The default log level is info.
+      # Available log levels are: error, warning, info, verbose
+      log_level: {{ .Values.atatus.log_level }}
+
+      labels: {cluster_name: {{ .Values.atatus.clusterName }}}
+
+      # eg: ["aws-eu", "web-tier"]
+      tags: []
+
+      logs_enabled: {{ .Values.atatus.logs_enabled }}
+
+      notify_url: {{ .Values.atatus.notify_url }}
+      log_notify_url: {{ .Values.atatus.log_notify_url }}
+      proxy_url: {{ .Values.atatus.proxy_url }}
+
+  securityContext:
+    runAsUser: 0
+    privileged: false
+  # agents.containers.resources -- Resource requests and limits for the agent container
+  resources: {}
+    # requests:
+    #   cpu: 100m
+    #   memory: 200Mi
+    # limits:
+    #   cpu: 100m
+    #   memory: 200Mi

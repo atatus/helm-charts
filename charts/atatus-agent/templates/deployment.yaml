@@ -1,0 +1,97 @@
+# Deploy singleton instance in the whole cluster for some unique data sources, like kube-state-metrics
+{{- if .Values.deployment.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: '{{ template "atatus-agent.fullname" . }}-metrics'
+  labels:
+    app: '{{ template "atatus-agent.fullname" . }}-metrics'
+    chart: '{{ .Chart.Name }}-{{ .Chart.Version }}'
+    heritage: '{{ .Release.Service }}'
+    release: '{{ .Release.Name }}'
+    {{- if .Values.deployment.labels }}
+    {{- range $key, $value := .Values.deployment.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- else }}
+    {{- range $key, $value := .Values.labels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- end }}
+  {{- if .Values.deployment.annotations}}
+  annotations:
+    {{- range $key, $value := .Values.deployment.annotations }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: '{{ template "atatus-agent.fullname" . }}-metrics'
+      release: '{{ .Release.Name }}'
+  template:
+    metadata:
+      annotations:
+        {{- range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{/* This forces a restart if the configmap has changed */}}
+        {{- if .Values.deployment.atatusConfig }}
+        configChecksum: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 63 }}
+        {{- end }}
+      labels:
+        app: '{{ template "atatus-agent.fullname" . }}-metrics'
+        chart: '{{ .Chart.Name }}-{{ .Chart.Version }}'
+        release: '{{ .Release.Name }}'
+        {{- if .Values.deployment.labels }}
+        {{- range $key, $value := .Values.deployment.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- else }}
+        {{- range $key, $value := .Values.labels }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      affinity: {{ toYaml .Values.deployment.affinity | nindent 8 }}
+      nodeSelector: {{ toYaml .Values.deployment.nodeSelector | nindent 8 }}
+      tolerations: {{ toYaml ( .Values.tolerations | default .Values.deployment.tolerations ) | nindent 8 }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName  }}
+      {{- end }}
+      serviceAccountName: {{ template "atatus-agent.serviceAccount" . }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriod }}
+      volumes:
+      - name: atatus-agent-config
+        configMap:
+          defaultMode: 0640
+          name: {{ template "atatus-agent.fullname" . }}-deployment-config
+      containers:
+      - name: "atatus-infra-agent"
+        image: "{{ .Values.image }}:{{ default .Chart.AppVersion .Values.imageTag }}"
+        imagePullPolicy: "{{ .Values.imagePullPolicy }}"
+        args:
+          - "-c"
+          - "/etc/atatus-infra-agent/"
+          - "-e"
+        {{- if .Values.livenessProbe }}
+        livenessProbe:
+{{ toYaml .Values.livenessProbe | indent 10 }}
+        {{- end }}
+        {{- if .Values.readinessProbe }}
+        readinessProbe:
+{{ toYaml .Values.readinessProbe | indent 10 }}
+        {{- end }}
+        resources: {{ toYaml ( .Values.resources | default .Values.deployment.resources ) | nindent 10 }}
+        securityContext: {{ toYaml ( .Values.podSecurityContext | default .Values.deployment.securityContext ) | nindent 10 }}
+        volumeMounts:
+          {{- range $path, $config := .Values.deployment.atatusConfig }}
+          {{- $filename := (splitList "/" $path) | last }}
+          - name: atatus-agent-config
+            mountPath: /etc/atatus-infra-agent/{{ $path }}
+            readOnly: true
+            subPath: {{ $filename }}
+          {{- end }}
+{{- end }}

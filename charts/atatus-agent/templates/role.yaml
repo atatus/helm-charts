@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "atatus-agent.serviceAccount" . }}-role
+  labels:
+    app: "{{ template "atatus-agent.fullname" . }}"
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ template "atatus-agent.serviceAccount" . }}-kubeadm-config
+  labels:
+    app: "{{ template "atatus-agent.fullname" . }}"
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    resourceNames:
+      - kubeadm-config
+    verbs: ["get"]
