@@ -170,7 +170,7 @@ daemonset:
   nodeSelector: {}
   tolerations: []
 
-  hostNetworking: false
+  hostNetworking: true
 
   atatusConfig:
     atatus.yml: |-
