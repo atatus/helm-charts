@@ -18,7 +18,7 @@ helm repo add atatus https://atatus.github.io/helm-charts
 You can then run `helm search repo atatus` to see the charts.
 
 <!-- Keep full URL links to repo files because this README syncs from main to gh-pages.  -->
-Chart documentation is available in [atatus directory](https://github.com/atatus/helm-charts/blob/main/charts/atatus/README.md).
+Chart documentation is available in [atatus directory](https://github.com/atatus/helm-charts/blob/main/charts/atatus-agent/README.md).
 
 ## License
 

@@ -2,34 +2,33 @@
 
 ## Installing
 
-* Add the Atatus Helm charts repo:
+### Add the Atatus Helm charts repo:
 
-```
+```console
 helm repo add atatus https://atatus.github.io/helm-charts
 helm repo update
 ```
 
 _See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation._
 
-* Installing the Chart
+### Installing the Chart
 
 To install the chart with the release name `atatus-release`:
 
-```
+```console
 helm install atatus-release atatus/atatus-agent -f ./values.yaml
 ```
 
 Here `values.yml` will have your license key and other settings.
 
 
-* Uninstalling the Chart:
+### Uninstalling the Chart:
 
 To uninstall/delete the atatus-release deployment:
 
 ```console
 helm uninstall atatus-release
 ```
-
 
 ## Configuration
 
