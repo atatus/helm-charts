@@ -2,72 +2,54 @@
 
 ## Installing
 
-### Install a released version using the Helm repository
-
 * Add the Atatus Helm charts repo:
 
 ```
-helm repo add atatus https://github.com/atatus/helm-charts
+helm repo add atatus https://atatus.github.io/helm-charts
+helm repo update
 ```
 
-* Install it:
+_See [helm repo](https://helm.sh/docs/helm/helm_repo/) for command documentation._
+
+* Installing the Chart
+
+To install the chart with the release name `atatus-release`:
 
 ```
-helm install atatus charts/atatus-agent -f ./atatus_values.yaml
+helm install atatus-release atatus/atatus-agent -f ./values.yaml
 ```
 
-Here `atatus_values.yml` will have your license key and other settings.
+Here `values.yml` will have your license key and other settings.
 
 
+* Uninstalling the Chart:
 
-### Install development version
+To uninstall/delete the atatus-release deployment:
 
-* Go the helm-charts repo:
-
-```bash
-cd helm-charts/charts
-```
-
-* Generate template with test values:
-
-```bash
-helm template test-release charts/atatus-agent --debug -f ./atatus_values.yaml
-```
-
-* Dry run the helm install:
-
-```bash
-helm install test-release charts/atatus-agent --debug --dry-run -f ./atatus_values.yaml
-```
-
-* Install it:
-
-```bash
-helm install test-release charts/atatus-agent --debug -f ./atatus_values.yaml
-```
-
-* Upgrade existing helm release
-
-```bash
-helm upgrade test-release charts/atatus-agent -f ./atatus_values.yaml
-```
-
-* Upgrade existing helm release with force restarting of pods
-
-```bash
-helm upgrade --recreate-pods test-release charts/atatus-agent -f ./atatus_values.yaml
-```
-
-* Uninstall release
-
-```bash
-    helm uninstall test-release
+```console
+helm uninstall atatus-release
 ```
 
 
 ## Configuration
 
+| Parameter                             | Description                       | Default                                 |
+|---------------------------------------|-----------------------------------|-----------------------------------------|
+| `atatus.license_key`                  | The Atatus Infra License Key.     |                                         |
+| `atatus.cluster_name`                 | Your cluster name                 |`default`                              |
+| `atatus.logs_enabled`                 | Enable Log Monitoring             |`true`                                 |
+| `atatus.notify_url`                   | Atatus Endpoint for Infra Metrics | `""`                                  |
+| `atatus.log_notify_url`               | Atatus Endpoint for Logs Collection | `""`                                |
 
+
+### Example values.yaml
+
+```yaml
+atatus:
+  license_key: "lic_infra_*****"
+  cluster_name: "ecom-cluster"
+  logs_enabled: true
+```
 
 ## License
 

@@ -81,7 +81,7 @@ atatus:
   proxy_url: ""
 
   # k8s cluster name
-  clusterName: "default"
+  cluster_name: "default"
 
   metrics:
     hosts: ["https://${NODE_NAME}:10250"]
@@ -183,7 +183,7 @@ daemonset:
       # Available log levels are: error, warning, info, verbose
       log_level: {{ .Values.atatus.log_level }}
 
-      labels: {cluster_name: {{ .Values.atatus.clusterName }}}
+      labels: {cluster_name: {{ .Values.atatus.cluster_name }}}
 
       # eg: ["aws-eu", "web-tier"]
       tags: []
@@ -261,7 +261,7 @@ deployment:
       # Available log levels are: error, warning, info, verbose
       log_level: {{ .Values.atatus.log_level }}
 
-      labels: {cluster_name: {{ .Values.atatus.clusterName }}}
+      labels: {cluster_name: {{ .Values.atatus.cluster_name }}}
 
       # eg: ["aws-eu", "web-tier"]
       tags: []
