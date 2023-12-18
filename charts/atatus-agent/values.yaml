@@ -70,7 +70,7 @@ atatus:
 
   # Sets log level. The default log level is info.
   # Available log levels are: error, warning, info, verbose
-  log_level: info
+  log_level: warning
 
   # Enable to monitor logs
   logs_enabled: false
