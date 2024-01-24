@@ -2,8 +2,36 @@ apiVersion: v1
 entries:
   atatus-agent:
   - apiVersion: v2
+    appVersion: 3.0.1
+    created: "2024-01-24T15:21:10.828548+05:30"
+    dependencies:
+    - condition: atatus.state_metrics.enabled
+      name: kube-state-metrics
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 4.7.0
+    description: Official helm chart for Atatus Agent
+    digest: a1a319477bcd0de24dc24111a61537b411c42869a9ff94cf176559b56bfc4605
+    home: https://www.atatus.com/
+    icon: https://www.atatus.com/images/logo/atatus-icon.png
+    keywords:
+    - atatus
+    - observability
+    - monitoring
+    - logging
+    - kubernetes
+    - metrics
+    - agent
+    maintainers:
+    - email: success@atatus.com
+      name: Atatus
+    name: atatus-agent
+    type: application
+    urls:
+    - https://atatus.github.io/helm-charts/packages/atatus-agent-1.0.2.tgz
+    version: 1.0.2
+  - apiVersion: v2
     appVersion: 3.0.0
-    created: "2023-12-18T16:49:52.058486+05:30"
+    created: "2024-01-24T15:21:10.827221+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -31,7 +59,7 @@ entries:
     version: 1.0.1
   - apiVersion: v2
     appVersion: 3.0.0
-    created: "2023-12-18T16:49:52.057435+05:30"
+    created: "2024-01-24T15:21:10.825821+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -57,4 +85,4 @@ entries:
     urls:
     - https://atatus.github.io/helm-charts/packages/atatus-agent-1.0.0.tgz
     version: 1.0.0
-generated: "2023-12-18T16:49:52.055906+05:30"
+generated: "2024-01-24T15:21:10.824339+05:30"
