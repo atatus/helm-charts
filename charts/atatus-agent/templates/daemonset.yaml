@@ -109,6 +109,8 @@ spec:
         {{- end }}
         resources: {{ toYaml ( .Values.resources | default .Values.daemonset.resources ) | nindent 10 }}
         env:
+        - name: ATATUS_DOCKER_METRICS
+          value: "false"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
