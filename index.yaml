@@ -2,8 +2,36 @@ apiVersion: v1
 entries:
   atatus-agent:
   - apiVersion: v2
+    appVersion: 3.1.0
+    created: "2024-07-09T17:34:30.486089+05:30"
+    dependencies:
+    - condition: atatus.state_metrics.enabled
+      name: kube-state-metrics
+      repository: https://prometheus-community.github.io/helm-charts
+      version: 4.7.0
+    description: Official helm chart for Atatus Agent
+    digest: e499cb54fe9592a1aa2286141e0a3915d02785f035105f4d8d5e98bbd87e0113
+    home: https://www.atatus.com/
+    icon: https://www.atatus.com/images/logo/atatus-icon.png
+    keywords:
+    - atatus
+    - observability
+    - monitoring
+    - logging
+    - kubernetes
+    - metrics
+    - agent
+    maintainers:
+    - email: success@atatus.com
+      name: Atatus
+    name: atatus-agent
+    type: application
+    urls:
+    - https://atatus.github.io/helm-charts/packages/atatus-agent-1.0.4.tgz
+    version: 1.0.4
+  - apiVersion: v2
     appVersion: 3.0.2
-    created: "2024-05-17T12:56:27.500014+05:30"
+    created: "2024-07-09T17:34:30.484701+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -31,7 +59,7 @@ entries:
     version: 1.0.3
   - apiVersion: v2
     appVersion: 3.0.1
-    created: "2024-05-17T12:56:27.499043+05:30"
+    created: "2024-07-09T17:34:30.483606+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -59,7 +87,7 @@ entries:
     version: 1.0.2
   - apiVersion: v2
     appVersion: 3.0.0
-    created: "2024-05-17T12:56:27.498078+05:30"
+    created: "2024-07-09T17:34:30.482462+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -87,7 +115,7 @@ entries:
     version: 1.0.1
   - apiVersion: v2
     appVersion: 3.0.0
-    created: "2024-05-17T12:56:27.496858+05:30"
+    created: "2024-07-09T17:34:30.481227+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -113,4 +141,4 @@ entries:
     urls:
     - https://atatus.github.io/helm-charts/packages/atatus-agent-1.0.0.tgz
     version: 1.0.0
-generated: "2024-05-17T12:56:27.49524+05:30"
+generated: "2024-07-09T17:34:30.47993+05:30"
