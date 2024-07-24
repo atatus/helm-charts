@@ -83,6 +83,13 @@ atatus:
   # k8s cluster name
   cluster_name: "default"
 
+  container_exclude: ""
+  container_include: ""
+  container_exclude_logs: ""
+  container_exclude_metrics: ""
+  container_include_logs: ""
+  container_include_metrics: ""
+
   metrics:
     hosts: ["https://${NODE_NAME}:10250"]
     bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
@@ -190,6 +197,13 @@ daemonset:
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
 
+      container_exclude: {{ .Values.atatus.container_exclude }}
+      container_include: {{ .Values.atatus.container_include }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
+      container_include_logs: {{ .Values.atatus.container_include_logs }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
+
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
       proxy_url: {{ .Values.atatus.proxy_url }}
@@ -267,6 +281,13 @@ deployment:
       tags: []
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
+
+      container_exclude: {{ .Values.atatus.container_exclude }}
+      container_include: {{ .Values.atatus.container_include }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
+      container_include_logs: {{ .Values.atatus.container_include_logs }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
 
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
