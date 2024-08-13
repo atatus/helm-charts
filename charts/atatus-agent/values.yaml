@@ -83,12 +83,12 @@ atatus:
   # k8s cluster name
   cluster_name: "default"
 
-  container_exclude: ""
   container_include: ""
-  container_exclude_logs: ""
+  container_exclude: ""
+  container_include_metrics: ""
   container_exclude_metrics: ""
   container_include_logs: ""
-  container_include_metrics: ""
+  container_exclude_logs: ""
 
   metrics:
     hosts: ["https://${NODE_NAME}:10250"]
@@ -197,12 +197,12 @@ daemonset:
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
 
-      container_exclude: {{ .Values.atatus.container_exclude }}
       container_include: {{ .Values.atatus.container_include }}
-      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_exclude: {{ .Values.atatus.container_exclude }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
       container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
       container_include_logs: {{ .Values.atatus.container_include_logs }}
-      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
 
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
@@ -282,12 +282,12 @@ deployment:
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
 
-      container_exclude: {{ .Values.atatus.container_exclude }}
       container_include: {{ .Values.atatus.container_include }}
-      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_exclude: {{ .Values.atatus.container_exclude }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
       container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
       container_include_logs: {{ .Values.atatus.container_include_logs }}
-      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
 
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
