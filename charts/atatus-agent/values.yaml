@@ -89,6 +89,8 @@ atatus:
   container_exclude_metrics: ""
   container_include_logs: ""
   container_exclude_logs: ""
+  container_include_log_lines: []
+  container_exclude_log_lines: []
 
   metrics:
     hosts: ["https://${NODE_NAME}:10250"]
@@ -203,6 +205,8 @@ daemonset:
       container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
       container_include_logs: {{ .Values.atatus.container_include_logs }}
       container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
+      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
 
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
@@ -288,6 +292,8 @@ deployment:
       container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
       container_include_logs: {{ .Values.atatus.container_include_logs }}
       container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
+      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
+      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
 
       notify_url: {{ .Values.atatus.notify_url }}
       log_notify_url: {{ .Values.atatus.log_notify_url }}
