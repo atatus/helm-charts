@@ -2,8 +2,8 @@ apiVersion: v2
 name: atatus-agent
 type: application
 description: Official helm chart for Atatus Agent
-version: 1.1.0
-appVersion: 4.0.0
+version: 1.2.0
+appVersion: 4.1.0
 keywords:
   - atatus
   - observability
@@ -19,6 +19,6 @@ home: https://www.atatus.com/
 icon: https://www.atatus.com/images/logo/atatus-icon.png
 dependencies:
   - name: "kube-state-metrics"
-    version: "4.7.0"
+    version: "7.2.0"
     repository: "https://prometheus-community.github.io/helm-charts"
     condition: atatus.state_metrics.enabled
