@@ -3,7 +3,7 @@ entries:
   atatus-agent:
   - apiVersion: v2
     appVersion: 4.0.0
-    created: "2025-12-13T17:26:59.620798+05:30"
+    created: "2026-03-13T17:32:51.457495+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -31,7 +31,7 @@ entries:
     version: 1.1.0
   - apiVersion: v2
     appVersion: 3.4.0
-    created: "2025-12-13T17:26:59.619768+05:30"
+    created: "2026-03-13T17:32:51.456368+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -59,7 +59,7 @@ entries:
     version: 1.0.8
   - apiVersion: v2
     appVersion: 3.3.0
-    created: "2025-12-13T17:26:59.618561+05:30"
+    created: "2026-03-13T17:32:51.455209+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -87,7 +87,7 @@ entries:
     version: 1.0.7
   - apiVersion: v2
     appVersion: 3.2.0
-    created: "2025-12-13T17:26:59.616685+05:30"
+    created: "2026-03-13T17:32:51.453714+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -115,7 +115,7 @@ entries:
     version: 1.0.6
   - apiVersion: v2
     appVersion: 3.1.1
-    created: "2025-12-13T17:26:59.614503+05:30"
+    created: "2026-03-13T17:32:51.452657+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -143,7 +143,7 @@ entries:
     version: 1.0.5
   - apiVersion: v2
     appVersion: 3.1.0
-    created: "2025-12-13T17:26:59.613303+05:30"
+    created: "2026-03-13T17:32:51.45158+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -171,7 +171,7 @@ entries:
     version: 1.0.4
   - apiVersion: v2
     appVersion: 3.0.2
-    created: "2025-12-13T17:26:59.611863+05:30"
+    created: "2026-03-13T17:32:51.450434+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -199,7 +199,7 @@ entries:
     version: 1.0.3
   - apiVersion: v2
     appVersion: 3.0.1
-    created: "2025-12-13T17:26:59.610566+05:30"
+    created: "2026-03-13T17:32:51.449331+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -227,7 +227,7 @@ entries:
     version: 1.0.2
   - apiVersion: v2
     appVersion: 3.0.0
-    created: "2025-12-13T17:26:59.609185+05:30"
+    created: "2026-03-13T17:32:51.448215+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -255,7 +255,7 @@ entries:
     version: 1.0.1
   - apiVersion: v2
     appVersion: 3.0.0
-    created: "2025-12-13T17:26:59.607897+05:30"
+    created: "2026-03-13T17:32:51.446886+05:30"
     dependencies:
     - condition: atatus.state_metrics.enabled
       name: kube-state-metrics
@@ -281,4 +281,4 @@ entries:
     urls:
     - https://atatus.github.io/helm-charts/packages/atatus-agent-1.0.0.tgz
     version: 1.0.0
-generated: "2025-12-13T17:26:59.604664+05:30"
+generated: "2026-03-13T17:32:51.443327+05:30"
