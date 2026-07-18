@@ -42,4 +42,4 @@ Session.vim
 /values.yaml
 /my-values.yaml
 
-chart.lock
+Chart.lock
