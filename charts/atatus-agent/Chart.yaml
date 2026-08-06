@@ -2,12 +2,7 @@ apiVersion: v2
 name: atatus-agent
 type: application
 description: Official helm chart for Atatus Agent
-# MAJOR: cluster-scoped metricsets now come from a single Deployment replica
-# instead of every DaemonSet pod. See CHANGELOG.md before upgrading.
-version: 2.0.0
-# Carries the int_metrics.go gating that makes `metrics.enabled` / `event.enabled`
-# take effect. Must be pushed to the registry BEFORE packaging the chart --
-# the rendered image is atatus/atatus-infra-agent:<appVersion>.
+version: 1.6.0
 appVersion: 4.2.0
 keywords:
   - atatus
