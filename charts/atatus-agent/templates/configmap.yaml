@@ -12,13 +12,11 @@ metadata:
 data:
 {{- range $path, $config := .Values.daemonset.atatusConfig }}
   {{ $path }}: |
-{{- range $line := splitList "\n" $config }}
-    {{ tpl $line $ }}
+{{ tpl $config $ | indent 4 }}
 {{- end }}
 {{- end -}}
-{{- end -}}
 
-{{- if and .Values.deployment.enabled .Values.deployment.atatusConfig }}
+{{- if and (include "atatus-agent.deploymentEnabled" .) .Values.deployment.atatusConfig }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -33,8 +31,6 @@ data:
 {{- range $path, $config := .Values.deployment.atatusConfig }}
 {{- $filename := (splitList "/" $path) | last }}
   {{ $filename }}: |
-{{- range $line := splitList "\n" $config }}
-    {{ tpl $line $ }}
+{{ tpl $config $ | indent 4 }}
 {{- end }}
-{{- end -}}
 {{- end -}}

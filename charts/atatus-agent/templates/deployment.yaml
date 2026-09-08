@@ -1,5 +1,5 @@
 # Deploy singleton instance in the whole cluster for some unique data sources, like kube-state-metrics
-{{- if .Values.deployment.enabled }}
+{{- if include "atatus-agent.deploymentEnabled" . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -26,7 +26,12 @@ metadata:
     {{- end }}
   {{- end }}
 spec:
-  replicas: {{ .Values.replicaCount }}
+  # Pinned to 1, not .Values.replicaCount: a second replica would not share load,
+  # it would store a second copy of every cluster-scoped row.
+  replicas: 1
+  # Recreate, so two pods never overlap mid-rollout and double-write.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: '{{ template "atatus-agent.fullname" . }}-metrics'
@@ -85,6 +90,30 @@ spec:
 {{ toYaml .Values.readinessProbe | indent 10 }}
         {{- end }}
         resources: {{ toYaml ( .Values.resources | default .Values.deployment.resources ) | nindent 10 }}
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- if .Values.goRuntime.enableGoMaxProcs }}
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        {{- end }}
+        {{- $memLimit := (((.Values.resources).limits).memory) | default (((.Values.deployment.resources).limits).memory) -}}
+        {{- $gomemlimit := include "atatus-agent.goMemLimit" (dict "explicit" .Values.goRuntime.goMemLimit "memLimit" $memLimit) -}}
+        {{- if $gomemlimit }}
+        - name: GOMEMLIMIT
+          value: {{ $gomemlimit | quote }}
+        {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         securityContext: {{ toYaml ( .Values.podSecurityContext | default .Values.deployment.securityContext ) | nindent 10 }}
         volumeMounts:
           {{- range $path, $config := .Values.deployment.atatusConfig }}

@@ -1,0 +1,23 @@
+{{- /*
+Render-time guards for the node-scoped / cluster-scoped split. Emits no objects.
+Fails the render on values combinations that would silently lose or duplicate
+data, rather than producing a manifest that looks healthy and is not.
+*/ -}}
+
+{{- $clusterScopedWanted := or .Values.atatus.state_metrics.enabled .Values.atatus.apiserver.enabled .Values.atatus.event.enabled -}}
+
+{{- /* First: with no workload at all, every other guard's advice would mislead. */ -}}
+{{- if and (not .Values.daemonset.enabled) (not (include "atatus-agent.deploymentEnabled" .)) -}}
+{{- fail "\n\natatus-agent: no agent workload is enabled.\n\ndaemonset.enabled is false, and the cluster-scoped Deployment is not enabled\neither (splitClusterMetrics and deployment.enabled are both false). The chart\nwould install RBAC and a ServiceAccount but no agent, and no metrics of any kind\nwould be collected.\n" -}}
+{{- end -}}
+
+{{- /* No "split on but Deployment off" guard: splitClusterMetrics implies the
+       Deployment, so that combination cannot occur. */ -}}
+
+{{- if and (not .Values.splitClusterMetrics) .Values.deployment.enabled $clusterScopedWanted -}}
+{{- fail "\n\natatus-agent: splitClusterMetrics is false but deployment.enabled is true.\n\nWith splitClusterMetrics false the DaemonSet keeps collecting cluster-scoped\nmetricsets on every node, and the Deployment collects them once more on top.\nEvery state_*, apiserver and event row would be stored N+1 times on an N-node\ncluster.\n\nFix one of:\n  splitClusterMetrics: true                 # recommended -- collect them once\n  deployment.enabled: false                 # legacy topology, N-fold duplication\n" -}}
+{{- end -}}
+
+{{- if and (include "atatus-agent.deploymentEnabled" .) (gt (int .Values.replicaCount) 1) -}}
+{{- fail "\n\natatus-agent: replicaCount is greater than 1.\n\nreplicaCount no longer sizes the cluster-scoped Deployment -- it is pinned to a\nsingle replica by design. kube-state-metrics, the API server and the event\nstream each return the state of the WHOLE cluster to whoever asks, so a second\nreplica does not share load, it stores a second complete copy of every row.\n\nRemove replicaCount from your values, or set it back to 1.\n" -}}
+{{- end -}}

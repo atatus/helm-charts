@@ -53,16 +53,39 @@ service:
 #   timeoutSeconds: 5
 
 resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # requests:
-  #  cpu: 100m
-  #  memory: 100Mi
   # limits:
-  #  cpu: 100m
-  #  memory: 200Mi
+  #   cpu: 1000m
+  #   memory: 2Gi
+  # requests:
+  #   cpu: 100m
+  #   memory: 256Mi
+
+# Go runtime tuning for the agent container. Leave goMemLimit empty to derive
+# it from resources.limits.memory at render time:
+#   GOMEMLIMIT  = 80% of resources.limits.memory (e.g. 1638MiB for a 2Gi limit)
+#   GOMAXPROCS  = ceil(resources.limits.cpu) via the downward API
+# GOMEMLIMIT makes the Go runtime aggressively GC and return arena pages to the
+# kernel as RSS approaches the limit, which is the fix for unbounded RSS growth
+# on cgroup v2 clusters.
+goRuntime:
+  goMemLimit: ""        # e.g. "1600MiB" — only set to override the derivation
+  enableGoMaxProcs: true
+
+# Extra env vars merged into the agent container (both DaemonSet and Deployment).
+# Use for downstream tweaks without forking the chart.
+extraEnv: []
+# Example:
+# extraEnv:
+#   - name: GODEBUG
+#     value: "madvdontneed=1"
+
+# Collect cluster-scoped metricsets (state_*, apiserver, event) from a single
+# Deployment replica instead of from every DaemonSet pod.
+# kube-state-metrics and the API server return the WHOLE cluster's state to
+# whoever asks, so collecting them on every node stores each row once per node
+# (N-fold duplication) and overloads kube-state-metrics.
+# Set to false only to restore the legacy topology.
+splitClusterMetrics: true
 
 atatus:
   # Configure atatus license key
@@ -92,11 +115,32 @@ atatus:
   container_include_log_lines: []
   container_exclude_log_lines: []
 
+  # --- NODE-SCOPED: read only the local node, so they run on every DaemonSet pod
+
+  # kubelet -- pod, container, node, system, volume metricsets
   metrics:
     hosts: ["https://${NODE_NAME}:10250"]
     bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
     ssl_certificate_authorities: "none"
 
+  proxy:
+    enabled: true
+    hosts: ["localhost:10249"]
+
+  # Reachable on localhost only from a control-plane node, so these stay on the
+  # DaemonSet rather than moving to the Deployment.
+  controllermanager:
+    enabled: true
+    hosts: ["localhost:10252"]
+
+  scheduler:
+    enabled: true
+    hosts: ["localhost:10251"]
+
+  # --- CLUSTER-SCOPED: return the whole cluster's state, so exactly one agent
+  # must collect them. With splitClusterMetrics: true that is the Deployment.
+
+  # Leave hosts empty to use the bundled kube-state-metrics subchart.
   state_metrics:
     enabled: true
     hosts: []
@@ -107,17 +151,10 @@ atatus:
     bearer_token_file: "/var/run/secrets/kubernetes.io/serviceaccount/token"
     ssl_certificate_authorities: "none"
 
-  proxy:
+  # Needs agent >= 4.2.0 to honour `enabled`; older agents ignore it and collect
+  # events on every node.
+  event:
     enabled: true
-    hosts: ["localhost:10249"]
-
-  controllermanager:
-    enabled: true
-    hosts: ["localhost:10252"]
-
-  scheduler:
-    enabled: true
-    hosts: ["localhost:10251"]
 
 
 clusterRoleRules:
@@ -199,35 +236,27 @@ daemonset:
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
 
-      container_include: {{ .Values.atatus.container_include }}
-      container_exclude: {{ .Values.atatus.container_exclude }}
-      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
-      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
-      container_include_logs: {{ .Values.atatus.container_include_logs }}
-      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
-      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
-      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
+      container_include: {{ .Values.atatus.container_include | default "" | quote }}
+      container_exclude: {{ .Values.atatus.container_exclude | default "" | quote }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics | default "" | quote }}
+      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics | default "" | quote }}
+      container_include_logs: {{ .Values.atatus.container_include_logs | default "" | quote }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs | default "" | quote }}
+      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}{{ $v | quote }}{{ end -}}]
+      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}{{ $v | quote }}{{ end -}}]
 
-      notify_url: {{ .Values.atatus.notify_url }}
-      log_notify_url: {{ .Values.atatus.log_notify_url }}
-      proxy_url: {{ .Values.atatus.proxy_url }}
+      notify_url: {{ .Values.atatus.notify_url | default "" | quote }}
+      log_notify_url: {{ .Values.atatus.log_notify_url | default "" | quote }}
+      proxy_url: {{ .Values.atatus.proxy_url | default "" | quote }}
 
+    # Node-scoped agent. Cluster-scoped blocks are omitted rather than set to
+    # false, so this is also correct on agents predating the `enabled` keys.
     kubernetes.yml: |-
       metrics:
         - metrics:
             hosts: [{{- range $index, $host := .Values.atatus.metrics.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
             bearer_token_file: {{ .Values.atatus.metrics.bearer_token_file }}
             ssl_certificate_authorities: {{ .Values.atatus.metrics.ssl_certificate_authorities }}
-
-          state_metrics:
-            enabled: {{ .Values.atatus.state_metrics.enabled }}
-            hosts: [{{ template "state-metrics.fullname" . }}]
-
-          apiserver:
-            enabled: {{ .Values.atatus.apiserver.enabled }}
-            hosts: [{{- range $index, $host := .Values.atatus.apiserver.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
-            bearer_token_file: {{ .Values.atatus.apiserver.bearer_token_file }}
-            ssl_certificate_authorities: {{ .Values.atatus.apiserver.ssl_certificate_authorities }}
 
           proxy:
             enabled: {{ .Values.atatus.proxy.enabled }}
@@ -240,6 +269,27 @@ daemonset:
           scheduler:
             enabled: {{ .Values.atatus.scheduler.enabled }}
             hosts: [{{- range $index, $host := .Values.atatus.scheduler.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+          {{- if .Values.splitClusterMetrics }}
+
+          # Needs an explicit false: unlike the other cluster-scoped sources,
+          # this one defaults to ON in the agent when its key is absent.
+          event:
+            enabled: false
+          {{- else }}
+
+          state_metrics:
+            enabled: {{ .Values.atatus.state_metrics.enabled }}
+            hosts: [{{ template "state-metrics.fullname" . }}]
+
+          apiserver:
+            enabled: {{ .Values.atatus.apiserver.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.apiserver.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+            bearer_token_file: {{ .Values.atatus.apiserver.bearer_token_file }}
+            ssl_certificate_authorities: {{ .Values.atatus.apiserver.ssl_certificate_authorities }}
+
+          event:
+            enabled: {{ .Values.atatus.event.enabled }}
+          {{- end }}
 
       logs:
         - type: container
@@ -257,7 +307,10 @@ daemonset:
     #   memory: 200Mi
 
 deployment:
-  enabled: false
+  # The cluster-scoped singleton. Implied by splitClusterMetrics: true, so a
+  # stale `false` from a pre-2.0.0 values file does not disable it.
+  # Always runs exactly one replica (enforced in the template, not configurable).
+  enabled: true
 
   # Annotations to apply to the deployment
   annotations: {}
@@ -286,18 +339,40 @@ deployment:
 
       logs_enabled: {{ .Values.atatus.logs_enabled }}
 
-      container_include: {{ .Values.atatus.container_include }}
-      container_exclude: {{ .Values.atatus.container_exclude }}
-      container_include_metrics: {{ .Values.atatus.container_include_metrics }}
-      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics }}
-      container_include_logs: {{ .Values.atatus.container_include_logs }}
-      container_exclude_logs: {{ .Values.atatus.container_exclude_logs }}
-      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
-      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}"{{ $v }}"{{ end -}}]
+      container_include: {{ .Values.atatus.container_include | default "" | quote }}
+      container_exclude: {{ .Values.atatus.container_exclude | default "" | quote }}
+      container_include_metrics: {{ .Values.atatus.container_include_metrics | default "" | quote }}
+      container_exclude_metrics: {{ .Values.atatus.container_exclude_metrics | default "" | quote }}
+      container_include_logs: {{ .Values.atatus.container_include_logs | default "" | quote }}
+      container_exclude_logs: {{ .Values.atatus.container_exclude_logs | default "" | quote }}
+      container_include_log_lines: [{{- range $i, $v := .Values.atatus.container_include_log_lines }}{{ if $i }}, {{ end }}{{ $v | quote }}{{ end -}}]
+      container_exclude_log_lines: [{{- range $i, $v := .Values.atatus.container_exclude_log_lines }}{{ if $i }}, {{ end }}{{ $v | quote }}{{ end -}}]
 
-      notify_url: {{ .Values.atatus.notify_url }}
-      log_notify_url: {{ .Values.atatus.log_notify_url }}
-      proxy_url: {{ .Values.atatus.proxy_url }}
+      notify_url: {{ .Values.atatus.notify_url | default "" | quote }}
+      log_notify_url: {{ .Values.atatus.log_notify_url | default "" | quote }}
+      proxy_url: {{ .Values.atatus.proxy_url | default "" | quote }}
+
+    # Cluster-scoped agent. `metrics.enabled: false` stops it also scraping the
+    # kubelet of whichever node it lands on. Omitting `hosts` is not a
+    # substitute -- metricbeat then creates the metricsets against an empty host
+    # and they fail on every fetch. Needs agent >= 4.2.0; older agents ignore it.
+    conf.d/kubernetes.d/kubernetes.yml: |-
+      metrics:
+        - metrics:
+            enabled: false
+
+          state_metrics:
+            enabled: {{ .Values.atatus.state_metrics.enabled }}
+            hosts: [{{ template "state-metrics.fullname" . }}]
+
+          apiserver:
+            enabled: {{ .Values.atatus.apiserver.enabled }}
+            hosts: [{{- range $index, $host := .Values.atatus.apiserver.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
+            bearer_token_file: {{ .Values.atatus.apiserver.bearer_token_file }}
+            ssl_certificate_authorities: {{ .Values.atatus.apiserver.ssl_certificate_authorities }}
+
+          event:
+            enabled: {{ .Values.atatus.event.enabled }}
 
   securityContext:
     runAsUser: 0

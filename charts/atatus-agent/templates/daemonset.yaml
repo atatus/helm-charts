@@ -119,6 +119,21 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        {{- if .Values.goRuntime.enableGoMaxProcs }}
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        {{- end }}
+        {{- $memLimit := (((.Values.resources).limits).memory) | default (((.Values.daemonset.resources).limits).memory) -}}
+        {{- $gomemlimit := include "atatus-agent.goMemLimit" (dict "explicit" .Values.goRuntime.goMemLimit "memLimit" $memLimit) -}}
+        {{- if $gomemlimit }}
+        - name: GOMEMLIMIT
+          value: {{ $gomemlimit | quote }}
+        {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         securityContext: {{ toYaml ( .Values.podSecurityContext | default .Values.daemonset.securityContext ) | nindent 10 }}
         volumeMounts:
         - name: atatus-agent-config
