@@ -84,40 +84,73 @@ extraEnv:
 > cannot be derived and is omitted — set `goRuntime.goMemLimit` explicitly, or
 > keep a `resources.limits.memory` value.
 
-## Architecture modes
+## Cluster metrics topology
 
-Two modes are supported:
+Most kubernetes metricsets are node-scoped: the kubelet, kube-proxy, the
+controller manager and the scheduler each report only the node the agent runs
+on, so every agent collects its own. Three are cluster-scoped:
+kube-state-metrics, the API server and the event stream each return the state of
+the *whole* cluster to whoever asks. Exactly one agent may collect those, or
+every row is stored once per node.
 
-**1. Standalone DaemonSet (default, `splitClusterMetrics: false`)**
+`clusterMetrics.mode` picks which agent that is.
 
-Every DaemonSet pod scrapes node-scoped **and** cluster-scoped metrics. Simple,
-but on clusters larger than ~20 nodes, kube-state-metrics is scraped redundantly
-from every node and the apiserver receives N watch connections per cluster
-resource. Use only on small clusters.
+**`leader` (default, needs agent >= 4.3.1)**
 
-**2. Split mode (recommended for >20 nodes)**
+One agent per node, all from the DaemonSet. They contend for a Kubernetes Lease
+in the release namespace, and the winner collects the cluster-scoped metricsets
+in addition to its own node's. If that node goes away, another agent takes the
+lease within about 15 seconds and carries on.
 
-Set `splitClusterMetrics: true` **and** `deployment.enabled: true`.
+This is the only mode that never puts two agent processes on one node. It is
+also the only one that behaves sensibly on a single-node cluster, where one pod
+covers both scopes.
 
-- **DaemonSet** — node-scoped only (kubelet metrics, kube-proxy, container/system
-  metrics, log harvesters).
-- **Deployment** (`replicas: 1`) — cluster-scoped only (`state_*`, `event`,
-  `apiserver`/`controllermanager`/`scheduler`).
+The Lease defaults to `atatus-infra-agent-cluster-leader`. Set
+`clusterMetrics.leaseName` per release if two independent installs share a
+namespace, otherwise they elect one leader between them and one install collects
+no cluster metrics.
 
-This drops the kube-state-metrics scrape load to 1× regardless of cluster size
-and removes the (N-1) redundant cluster-resource watchers.
+**`deployment` (for agents 4.2.0 to 4.3.0)**
 
-> Split mode requires an agent release that honors the `ATATUS_AGENT_MODE` env
-> var (appVersion `>= 4.2.0`). On older agents, keep `splitClusterMetrics: false`.
+A separate single-replica Deployment collects the cluster-scoped metricsets, and
+the DaemonSet collects node metrics only.
 
-Migration — existing deployments continue working unchanged on upgrade (defaults
-preserved). To switch:
+The cost is that the Deployment always lands on a node that already runs a
+DaemonSet agent, so that node carries two agent processes. Both report under the
+same host, because the agent derives its host id from the kernel boot id and
+that is not namespaced. They then disagree about the hostname, and about the
+system metrics that every agent collects unconditionally, since only the
+DaemonSet mounts the host filesystem. Prefer `leader` wherever the agent version
+allows it.
+
+**`every-node` (legacy)**
+
+Every DaemonSet agent collects the cluster-scoped metricsets. Each row is stored
+once per node and kube-state-metrics is scraped N times. Kept only for agents
+older than 4.2.0.
+
+### Choosing a mode
+
+The mode is resolved at render time, and the chart refuses to install rather
+than produce a topology that silently duplicates or drops data. It fails if the
+agent image is pinned below 4.3.1 in `leader` mode, if `deployment.enabled`
+contradicts an explicit mode, or if `leader` mode is asked for with no DaemonSet.
+
+Leaving `clusterMetrics.mode` unset selects `deployment` when a values file still
+carries `deployment.enabled: true`, so an existing install keeps its topology
+across a chart upgrade. It selects `leader` otherwise.
+
+### Migrating an existing install
 
 ```console
 helm upgrade atatus-agent atatus/atatus-agent -n atatus \
-  --set deployment.enabled=true \
-  --set splitClusterMetrics=true
+  --set clusterMetrics.mode=leader \
+  --set deployment.enabled=false
 ```
+
+The Deployment is removed and its work moves onto the elected DaemonSet agent.
+Expect a gap of up to one collection interval while the lease is first acquired.
 
 ## License
 

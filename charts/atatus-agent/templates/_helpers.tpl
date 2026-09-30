@@ -114,18 +114,35 @@ on that.
 {{- end -}}
 
 
-{{/*
-Whether the cluster-scoped Deployment should be rendered.
+{{- define "atatus-agent.clusterMetricsMode" -}}
+{{- if hasKey (.Values.clusterMetrics | default dict) "mode" -}}
+{{- .Values.clusterMetrics.mode -}}
+{{- else if .Values.deployment.enabled -}}
+deployment
+{{- else -}}
+leader
+{{- end -}}
+{{- end -}}
 
-Derived rather than a plain .Values.deployment.enabled lookup: splitClusterMetrics
-removes the cluster-scoped metricsets from the DaemonSet, so the Deployment that
-collects them instead is required. Pre-2.0.0 the shipped default was
-`deployment.enabled: false`, and honouring that literally would break upgrades
-for every customer still carrying it.
-*/}}
+
 {{- define "atatus-agent.deploymentEnabled" -}}
-{{- if or .Values.splitClusterMetrics .Values.deployment.enabled -}}
+{{- if eq (include "atatus-agent.clusterMetricsMode" .) "deployment" -}}
 true
+{{- end -}}
+{{- end -}}
+
+
+{{- define "atatus-agent.daemonsetCollectsClusterMetrics" -}}
+{{- if ne (include "atatus-agent.clusterMetricsMode" .) "deployment" -}}
+true
+{{- end -}}
+{{- end -}}
+
+
+{{- define "atatus-agent.agentVersion" -}}
+{{- $tag := default .Chart.AppVersion .Values.imageTag -}}
+{{- if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" $tag -}}
+{{- $tag -}}
 {{- end -}}
 {{- end -}}
 

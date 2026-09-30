@@ -79,13 +79,8 @@ extraEnv: []
 #   - name: GODEBUG
 #     value: "madvdontneed=1"
 
-# Collect cluster-scoped metricsets (state_*, apiserver, event) from a single
-# Deployment replica instead of from every DaemonSet pod.
-# kube-state-metrics and the API server return the WHOLE cluster's state to
-# whoever asks, so collecting them on every node stores each row once per node
-# (N-fold duplication) and overloads kube-state-metrics.
-# Set to false only to restore the legacy topology.
-splitClusterMetrics: true
+clusterMetrics:
+  leaseName: ""
 
 atatus:
   # Configure atatus license key
@@ -127,8 +122,6 @@ atatus:
     enabled: true
     hosts: ["localhost:10249"]
 
-  # Reachable on localhost only from a control-plane node, so these stay on the
-  # DaemonSet rather than moving to the Deployment.
   controllermanager:
     enabled: true
     hosts: ["localhost:10252"]
@@ -137,10 +130,6 @@ atatus:
     enabled: true
     hosts: ["localhost:10251"]
 
-  # --- CLUSTER-SCOPED: return the whole cluster's state, so exactly one agent
-  # must collect them. With splitClusterMetrics: true that is the Deployment.
-
-  # Leave hosts empty to use the bundled kube-state-metrics subchart.
   state_metrics:
     enabled: true
     hosts: []
@@ -249,8 +238,6 @@ daemonset:
       log_notify_url: {{ .Values.atatus.log_notify_url | default "" | quote }}
       proxy_url: {{ .Values.atatus.proxy_url | default "" | quote }}
 
-    # Node-scoped agent. Cluster-scoped blocks are omitted rather than set to
-    # false, so this is also correct on agents predating the `enabled` keys.
     kubernetes.yml: |-
       metrics:
         - metrics:
@@ -269,13 +256,15 @@ daemonset:
           scheduler:
             enabled: {{ .Values.atatus.scheduler.enabled }}
             hosts: [{{- range $index, $host := .Values.atatus.scheduler.hosts }}{{ if $index }}, {{ end }}"{{ $host }}"{{ end -}}]
-          {{- if .Values.splitClusterMetrics }}
+          {{- if include "atatus-agent.daemonsetCollectsClusterMetrics" . }}
+          {{- if eq (include "atatus-agent.clusterMetricsMode" .) "leader" }}
 
-          # Needs an explicit false: unlike the other cluster-scoped sources,
-          # this one defaults to ON in the agent when its key is absent.
-          event:
-            enabled: false
-          {{- else }}
+          leader_election:
+            enabled: true
+            {{- with .Values.clusterMetrics.leaseName }}
+            lease_name: {{ . }}
+            {{- end }}
+          {{- end }}
 
           state_metrics:
             enabled: {{ .Values.atatus.state_metrics.enabled }}
@@ -289,6 +278,10 @@ daemonset:
 
           event:
             enabled: {{ .Values.atatus.event.enabled }}
+          {{- else }}
+
+          event:
+            enabled: false
           {{- end }}
 
       logs:
@@ -307,10 +300,8 @@ daemonset:
     #   memory: 200Mi
 
 deployment:
-  # The cluster-scoped singleton. Implied by splitClusterMetrics: true, so a
-  # stale `false` from a pre-2.0.0 values file does not disable it.
   # Always runs exactly one replica (enforced in the template, not configurable).
-  enabled: true
+  enabled: false
 
   # Annotations to apply to the deployment
   annotations: {}

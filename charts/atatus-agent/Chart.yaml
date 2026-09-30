@@ -2,8 +2,8 @@ apiVersion: v2
 name: atatus-agent
 type: application
 description: Official helm chart for Atatus Agent
-version: 1.7.0
-appVersion: 4.3.0
+version: 1.8.0
+appVersion: 4.3.1
 keywords:
   - atatus
   - observability
