@@ -4,18 +4,31 @@ Fails the render on values combinations that would silently lose or duplicate
 data, rather than producing a manifest that looks healthy and is not.
 */ -}}
 
+{{- $mode := include "atatus-agent.clusterMetricsMode" . -}}
 {{- $clusterScopedWanted := or .Values.atatus.state_metrics.enabled .Values.atatus.apiserver.enabled .Values.atatus.event.enabled -}}
+
+{{- if not (has $mode (list "leader" "deployment" "every-node")) -}}
+{{- fail (printf "\n\natatus-agent: clusterMetrics.mode is %q.\n\nSupported values are:\n  leader      one DaemonSet agent is elected and collects the cluster-scoped\n              metricsets on top of its own node's metrics\n  deployment  a separate one-replica Deployment collects them\n  every-node  every DaemonSet agent collects them (N-fold duplication)\n" $mode) -}}
+{{- end -}}
 
 {{- /* First: with no workload at all, every other guard's advice would mislead. */ -}}
 {{- if and (not .Values.daemonset.enabled) (not (include "atatus-agent.deploymentEnabled" .)) -}}
-{{- fail "\n\natatus-agent: no agent workload is enabled.\n\ndaemonset.enabled is false, and the cluster-scoped Deployment is not enabled\neither (splitClusterMetrics and deployment.enabled are both false). The chart\nwould install RBAC and a ServiceAccount but no agent, and no metrics of any kind\nwould be collected.\n" -}}
+{{- fail "\n\natatus-agent: no agent workload is enabled.\n\ndaemonset.enabled is false, and clusterMetrics.mode is not deployment, so no\nDeployment is rendered either. The chart would install RBAC and a ServiceAccount\nbut no agent, and no metrics of any kind would be collected.\n" -}}
 {{- end -}}
 
-{{- /* No "split on but Deployment off" guard: splitClusterMetrics implies the
-       Deployment, so that combination cannot occur. */ -}}
+{{- if and (eq $mode "leader") (not .Values.daemonset.enabled) $clusterScopedWanted -}}
+{{- fail "\n\natatus-agent: clusterMetrics.mode is leader but daemonset.enabled is false.\n\nLeader mode elects one of the DaemonSet agents to collect the cluster-scoped\nmetricsets. With no DaemonSet there is no candidate, so no agent would collect\nstate_*, apiserver or event data at all.\n\nFix one of:\n  daemonset.enabled: true                   # recommended\n  clusterMetrics.mode: deployment           # collect them from a separate pod\n" -}}
+{{- end -}}
 
-{{- if and (not .Values.splitClusterMetrics) .Values.deployment.enabled $clusterScopedWanted -}}
-{{- fail "\n\natatus-agent: splitClusterMetrics is false but deployment.enabled is true.\n\nWith splitClusterMetrics false the DaemonSet keeps collecting cluster-scoped\nmetricsets on every node, and the Deployment collects them once more on top.\nEvery state_*, apiserver and event row would be stored N+1 times on an N-node\ncluster.\n\nFix one of:\n  splitClusterMetrics: true                 # recommended -- collect them once\n  deployment.enabled: false                 # legacy topology, N-fold duplication\n" -}}
+{{- if and .Values.deployment.enabled (ne $mode "deployment") -}}
+{{- fail (printf "\n\natatus-agent: deployment.enabled is true but clusterMetrics.mode is %q.\n\nThose ask for two different topologies. The Deployment collects the\ncluster-scoped metricsets from its own pod, and %s already collects them\nelsewhere, so every state_*, apiserver and event row would be stored twice.\n\nFix one of:\n  deployment.enabled: false                 # recommended -- keep mode %s\n  clusterMetrics.mode: deployment           # keep the separate Deployment\n" $mode $mode $mode) -}}
+{{- end -}}
+
+{{- $agentVersion := include "atatus-agent.agentVersion" . -}}
+{{- if and (eq $mode "leader") $clusterScopedWanted $agentVersion -}}
+{{- if not (semverCompare ">= 4.3.1" $agentVersion) -}}
+{{- fail (printf "\n\natatus-agent: clusterMetrics.mode is leader but the agent image is %s.\n\nLeader election is implemented in the agent. Versions before 4.3.1 ignore the\nleader_election key and collect the cluster-scoped metricsets on every node, so\nevery state_*, apiserver and event row would be stored once per node.\n\nFix one of:\n  imageTag: \"\"                              # recommended -- use the chart's agent\n  clusterMetrics.mode: deployment           # topology for agents 4.2.0 - 4.3.0\n  clusterMetrics.mode: every-node           # legacy, N-fold duplication\n" $agentVersion) -}}
+{{- end -}}
 {{- end -}}
 
 {{- if and (include "atatus-agent.deploymentEnabled" .) (gt (int .Values.replicaCount) 1) -}}
