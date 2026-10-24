@@ -1,0 +1,11 @@
+# kubectl -n atatus-one-agent create secret generic atatus-one-ca --from-file=ca.pem=ca.pem
+atatus:
+  license_key: "<license key>"
+  cluster_name: "<cluster name>"
+controller:
+  hosts: [atatus.example.internal]
+  tlsPort: 30035
+tls:
+  mode: ca
+  caSecret:
+    name: atatus-one-ca

@@ -17,8 +17,20 @@ helm repo add atatus https://atatus.github.io/helm-charts
 
 You can then run `helm search repo atatus` to see the charts.
 
+## Charts
+
+| Chart | What it collects |
+|---|---|
+| `atatus-agent` | Infrastructure metrics, container and node logs, and Kubernetes state. |
+| `atatus-one-agent` | eBPF telemetry: traces and request logs, network flows, profiles and process events, with no code change in the applications. |
+
+The two run alongside each other, not instead of one another. Install both with the **same**
+`atatus.license_key` and the **same** `atatus.cluster_name`, or one cluster appears twice in the account.
+
 <!-- Keep full URL links to repo files because this README syncs from main to gh-pages.  -->
-Chart documentation is available in [atatus directory](https://github.com/atatus/helm-charts/blob/main/charts/atatus-agent/README.md).
+Chart documentation is available for
+[atatus-agent](https://github.com/atatus/helm-charts/blob/main/charts/atatus-agent/README.md) and
+[atatus-one-agent](https://github.com/atatus/helm-charts/blob/main/charts/atatus-one-agent/README.md).
 
 ## License
 

@@ -1,0 +1,16 @@
+atatus-one-agent runs on every schedulable node as the DaemonSet {{ .Release.Namespace }}/atatus-one-agent,
+reporting cluster "{{ .Values.atatus.cluster_name }}" to {{ join ", " .Values.controller.hosts }}.
+
+- The pods need privileged pod security: label the namespace
+  kubectl label namespace {{ .Release.Namespace }} pod-security.kubernetes.io/enforce=privileged
+- Install one release per cluster. A second release (in any namespace), or a node that already runs the deb/rpm
+  agent, makes the extra agent exit: one atatus-one-agent per host.
+- atatus.cluster_name must be unique in the account (use the atatus-agent chart's atatus.cluster_name). Renaming
+  it after the first registration needs the Kubernetes domain deleted on the controller.
+- Keep the agent group's limits (max_millicpus, max_memory) equal to resources.limits.
+- tolerations: [] skips tainted and control-plane nodes; set [{operator: Exists}] to cover them (they then count
+  as hosts).
+- EKS Fargate and GKE Autopilot are not supported (no host PID or eBPF).
+
+Check the agent:
+  kubectl -n {{ .Release.Namespace }} logs ds/atatus-one-agent | grep -E "static_config|Launching"

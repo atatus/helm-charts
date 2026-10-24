@@ -1,0 +1,126 @@
+atatus:
+  # the account's license key (the same key as the atatus-agent chart), stored in a Secret
+  license_key: ""
+  # or an existing Secret holding it
+  existingSecret: ""
+  existingSecretKey: license-key
+  # the Kubernetes cluster name shown in Atatus: required and unique in the account; use the same value as the
+  # atatus-agent chart's atatus.cluster_name. It cannot be renamed after the first registration.
+  cluster_name: ""
+  # 'default' is refused unless this is true (two clusters named default would collide in one account)
+  allowDefaultClusterName: false
+  # agent group to join (vtap-group-id-request), empty for the account's default group
+  agentGroupId: ""
+
+controller:
+  # the Atatus agent endpoint of your region, or the on-prem server: exactly one host name, or IP addresses of
+  # one family
+  hosts: []
+  # the TLS port (SaaS load balancer 443; on-prem NodePort example 30035)
+  tlsPort: 443
+  # plain gRPC port, used only when tls.mode is disabled
+  port: 30035
+
+tls:
+  # system: the operating system trust store (Atatus SaaS); ca: a private CA (caSecret or caConfigMap, key
+  # ca.pem); disabled: plain gRPC and TCP (tests only)
+  mode: system
+  caSecret:
+    name: ""
+    key: ca.pem
+  caConfigMap:
+    name: ""
+    key: ca.pem
+
+# Either shape works, so one values file can serve this chart and atatus-agent:
+#   image: {repository: ..., tag: ..., pullPolicy: ...}   (this chart's own)
+#   image: "atatus/one-agent"  with imageTag / imagePullPolicy   (the atatus-agent chart's)
+image:
+  # tag empty takes the chart's appVersion, so a release needs no value here. A test build overrides it and
+  # nothing else: `--set image.tag=1.0.1-rc-1` (see _helpers.tpl, default .Chart.AppVersion .Values.image.tag).
+  repository: atatus/atatus-one-agent
+  tag: ""
+  pullPolicy: IfNotPresent
+# read only when `image` is a plain string
+imageTag: ""
+imagePullPolicy: ""
+imagePullSecrets: []
+
+# capabilities (default): root with the eBPF capability set of deepflow-charts; privileged: a privileged container
+securityMode: capabilities
+capabilities: [SYS_ADMIN, SYS_RESOURCE, SYS_PTRACE, NET_ADMIN, NET_RAW, IPC_LOCK, SYSLOG]
+# runtime default profiles deny the writes under /sys/kernel/debug that eBPF needs
+seccompProfile:
+  type: Unconfined
+appArmorProfile:
+  type: Unconfined
+
+hostNetwork: false
+
+# keep equal to the agent group's global.limits.max_millicpus and max_memory
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+logs:
+  # agent log files in an emptyDir
+  sizeLimit: 2Gi
+
+# an init container that enables the BPF JIT on the node (privileged, off by default)
+sysctlInitContainer:
+  enabled: false
+
+livenessProbe:
+  enabled: true
+  port: 39090
+  initialDelaySeconds: 15
+  periodSeconds: 30
+  failureThreshold: 5
+
+# the agent's integration listener (OpenTelemetry, SkyWalking gRPC/HTTP, Prometheus remote write, Telegraf, logs, profiles)
+integrationService:
+  enabled: false
+  port: 38086
+  type: ClusterIP
+
+# [] skips tainted and control-plane nodes; [{operator: Exists}] covers every node (each counts as a host)
+tolerations: []
+nodeSelector: {}
+affinity: {}
+priorityClassName: ""
+podAnnotations: {}
+podLabels: {}
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+rbac:
+  create: true
+  extraRules: []
+serviceAccount:
+  create: true
+  name: ""
+
+# other static config keys (atatus-one-agent.yaml); chart-owned keys are refused. Agent group config, such as
+# the protocols the agent parses (enabled_protocols), is not static config: it is set per group in Atatus Fleet
+extraStaticConfig: {}
+extraEnv: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Detached debug files (the .build-id layout) to mount into the agent at /usr/lib/debug, so that profile
+# frames inside stripped system libraries are named instead of reading "[/usr/lib/.../libc.so.6]". Empty
+# disables the mount.
+#
+# It belongs on the agent, not on the profiled workload: bcc resolves a build-id to the absolute path
+# /usr/lib/debug/.build-id/<xx>/<rest>.debug in the agent's own filesystem, so a -dbg package installed
+# inside a profiled container is never consulted. A build-id store merges cleanly, so one directory can
+# hold the node's own debug files and any extracted for container images.
+debugSymbols:
+  hostPath: ""

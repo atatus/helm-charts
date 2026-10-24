@@ -1,0 +1,22 @@
+apiVersion: v2
+name: atatus-one-agent
+type: application
+description: Official helm chart for Atatus One Agent, the eBPF agent
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.20.0-0"
+keywords:
+  - atatus
+  - observability
+  - ebpf
+  - monitoring
+  - kubernetes
+  - tracing
+  - apm
+  - network
+  - agent
+maintainers:
+  - name: Atatus
+    email: success@atatus.com
+home: https://www.atatus.com/
+icon: https://www.atatus.com/images/logo/atatus-icon.png

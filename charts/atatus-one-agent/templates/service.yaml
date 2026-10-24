@@ -1,0 +1,19 @@
+{{- if .Values.integrationService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "atatus-one-agent.fullname" . }}
+  labels:
+    {{- include "atatus-one-agent.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.integrationService.type }}
+  # an application's data goes to the agent on its own node
+  internalTrafficPolicy: Local
+  selector:
+    {{- include "atatus-one-agent.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: integration
+      port: {{ .Values.integrationService.port }}
+      targetPort: integration
+      protocol: TCP
+{{- end }}

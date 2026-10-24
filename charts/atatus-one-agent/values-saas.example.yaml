@@ -1,0 +1,8 @@
+atatus:
+  license_key: "<license key>"
+  cluster_name: "<cluster name>"
+controller:
+  hosts: [agent.us1.atatus.com]
+  tlsPort: 443
+tls:
+  mode: system

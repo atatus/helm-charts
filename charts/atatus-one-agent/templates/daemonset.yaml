@@ -1,0 +1,203 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  # fixed: the agent reads its own DaemonSet by this name (DAEMONSET_NAME)
+  name: atatus-one-agent
+  labels:
+    {{- include "atatus-one-agent.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "atatus-one-agent.selectorLabels" . | nindent 6 }}
+  {{- with .Values.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "atatus-one-agent.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if not .Values.atatus.existingSecret }}
+        checksum/license: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.appArmorProfile (not (semverCompare ">=1.30-0" .Capabilities.KubeVersion.Version)) }}
+        container.apparmor.security.beta.kubernetes.io/atatus-one-agent: {{ ternary "unconfined" (printf "localhost/%s" (default "" .Values.appArmorProfile.localhostProfile)) (eq .Values.appArmorProfile.type "Unconfined") }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "atatus-one-agent.serviceAccountName" . }}
+      # the agent detects Kubernetes by the service account token and watches resources with it
+      automountServiceAccountToken: true
+      hostPID: true
+      hostNetwork: {{ .Values.hostNetwork }}
+      dnsPolicy: {{ ternary "ClusterFirstWithHostNet" "ClusterFirst" .Values.hostNetwork }}
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.sysctlInitContainer.enabled }}
+      initContainers:
+        - name: configure-sysctl
+          image: {{ include "atatus-one-agent.image" . }}
+          imagePullPolicy: {{ include "atatus-one-agent.imagePullPolicy" . }}
+          securityContext:
+            privileged: true
+          command: [nsenter, -t, "1", -n, --, sh, -c, "echo 1 > /proc/sys/net/core/bpf_jit_enable"]
+      {{- end }}
+      containers:
+        # fixed: the agent finds its container by this name (CONTAINER_NAME)
+        - name: atatus-one-agent
+          image: {{ include "atatus-one-agent.image" . }}
+          imagePullPolicy: {{ include "atatus-one-agent.imagePullPolicy" . }}
+          # command as well as args: the image has no ENTRYPOINT, and a Kubernetes `args` replaces the
+          # image's CMD outright rather than appending to it. With args alone the container's argv is just
+          # ["-f", ...] and it fails with `exec: "-f": executable file not found in $PATH`.
+          command: ["/bin/atatus-one-agent"]
+          args: ["-f", "/etc/atatus-one-agent/atatus-one-agent.yaml"]
+          securityContext:
+            runAsUser: 0
+            {{- if eq .Values.securityMode "privileged" }}
+            privileged: true
+            {{- else }}
+            privileged: false
+            capabilities:
+              add:
+                {{- toYaml .Values.capabilities | nindent 16 }}
+            {{- end }}
+            {{- with .Values.seccompProfile }}
+            seccompProfile:
+              {{- toYaml . | nindent 14 }}
+            {{- end }}
+            {{- if and .Values.appArmorProfile (semverCompare ">=1.30-0" .Capabilities.KubeVersion.Version) }}
+            appArmorProfile:
+              {{- toYaml .Values.appArmorProfile | nindent 14 }}
+            {{- end }}
+          env:
+            - name: ATATUS_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "atatus-one-agent.licenseSecret" . }}
+                  key: {{ ternary .Values.atatus.existingSecretKey "license-key" (not (empty .Values.atatus.existingSecret)) }}
+            - name: K8S_NODE_NAME_FOR_DEEPFLOW
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K8S_POD_NAME_FOR_DEEPFLOW
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE_FOR_DEEPFLOW
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K8S_NODE_IP_FOR_DEEPFLOW
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: integration
+              containerPort: {{ .Values.integrationService.port }}
+              protocol: TCP
+            - name: liveness
+              containerPort: {{ .Values.livenessProbe.port }}
+              protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: liveness
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/atatus-one-agent/atatus-one-agent.yaml
+              subPath: atatus-one-agent.yaml
+              readOnly: true
+            {{- if eq .Values.tls.mode "ca" }}
+            - name: tls-ca
+              mountPath: /etc/atatus-one-agent/tls
+              readOnly: true
+            {{- end }}
+            - name: logs
+              mountPath: /var/log/atatus-one-agent
+            - name: sys-kernel-debug
+              mountPath: /sys/kernel/debug
+            - name: host-os-release
+              mountPath: /etc/os-release
+              readOnly: true
+            {{- if .Values.debugSymbols.hostPath }}
+            - name: debug-symbols
+              mountPath: /usr/lib/debug
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- if .Values.debugSymbols.hostPath }}
+        # Detached debug files, for naming profile frames inside stripped libraries.
+        #
+        # It is mounted into the AGENT, not into the workload, because that is where the lookup happens:
+        # bcc resolves a build-id to the absolute path /usr/lib/debug/.build-id/<xx>/<rest>.debug in its
+        # own filesystem (bcc_elf.c find_debug_via_buildid). Installing a -dbg package inside the profiled
+        # container therefore changes nothing - the agent never looks there. A build-id store merges
+        # cleanly, so one directory can hold the host's files and any container's.
+        - name: debug-symbols
+          hostPath:
+            path: {{ .Values.debugSymbols.hostPath | quote }}
+            type: DirectoryOrCreate
+        {{- end }}
+        - name: config
+          configMap:
+            name: {{ include "atatus-one-agent.fullname" . }}-config
+        {{- if eq .Values.tls.mode "ca" }}
+        - name: tls-ca
+          {{- if .Values.tls.caSecret.name }}
+          secret:
+            secretName: {{ .Values.tls.caSecret.name }}
+            items:
+              - key: {{ .Values.tls.caSecret.key }}
+                path: ca.pem
+          {{- else }}
+          configMap:
+            name: {{ .Values.tls.caConfigMap.name }}
+            items:
+              - key: {{ .Values.tls.caConfigMap.key }}
+                path: ca.pem
+          {{- end }}
+        {{- end }}
+        - name: logs
+          emptyDir:
+            sizeLimit: {{ .Values.logs.sizeLimit }}
+        - name: sys-kernel-debug
+          hostPath:
+            path: /sys/kernel/debug
+        - name: host-os-release
+          hostPath:
+            path: /etc/os-release
+            type: File
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}

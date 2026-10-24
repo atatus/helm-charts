@@ -39,6 +39,8 @@ Session.vim
 /charts/atatus_values.yaml
 /atatus_values.yaml
 /atatus_values.yml
+/atatus_one_agent_values.yaml
+/atatus_one_agent_values.yml
 /values.yaml
 /my-values.yaml
 

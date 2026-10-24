@@ -1,0 +1,42 @@
+{{- $v := .Values }}
+{{- if and (not $v.atatus.license_key) (not $v.atatus.existingSecret) }}
+{{- fail "atatus.license_key (or atatus.existingSecret) is required" }}
+{{- end }}
+{{- if not $v.atatus.cluster_name }}
+{{- fail "atatus.cluster_name is required: a name unique in the account, the atatus-agent chart's atatus.cluster_name" }}
+{{- end }}
+{{- if and (eq (lower $v.atatus.cluster_name) "default") (not $v.atatus.allowDefaultClusterName) }}
+{{- fail "atatus.cluster_name 'default' collides across clusters of one account: choose a unique name (or set atatus.allowDefaultClusterName)" }}
+{{- end }}
+{{- if not $v.controller.hosts }}
+{{- fail "controller.hosts is required: the Atatus agent endpoint of your region, or the on-prem server" }}
+{{- end }}
+{{- $names := 0 }}{{- $v4 := 0 }}{{- $v6 := 0 }}
+{{- range $v.controller.hosts }}
+{{- if regexMatch "^[0-9]+(\\.[0-9]+){3}$" (toString .) }}{{- $v4 = add1 $v4 }}
+{{- else if contains ":" (toString .) }}{{- $v6 = add1 $v6 }}
+{{- else }}{{- $names = add1 $names }}{{- end }}
+{{- end }}
+{{- if and (gt $names 0) (gt (len $v.controller.hosts) 1) }}
+{{- fail "controller.hosts: give exactly one host name, or IP addresses" }}
+{{- end }}
+{{- if and (gt $v4 0) (gt $v6 0) }}
+{{- fail "controller.hosts: do not mix IPv4 and IPv6 addresses" }}
+{{- end }}
+{{- if not (has $v.tls.mode (list "system" "ca" "disabled")) }}
+{{- fail "tls.mode must be system, ca or disabled" }}
+{{- end }}
+{{- if and (eq $v.tls.mode "ca") (not $v.tls.caSecret.name) (not $v.tls.caConfigMap.name) }}
+{{- fail "tls.mode ca needs tls.caSecret.name or tls.caConfigMap.name" }}
+{{- end }}
+{{- if not (has $v.securityMode (list "capabilities" "privileged")) }}
+{{- fail "securityMode must be capabilities or privileged" }}
+{{- end }}
+{{- if or (not $v.resources.limits) (not $v.resources.limits.cpu) (not $v.resources.limits.memory) }}
+{{- fail "resources.limits.cpu and resources.limits.memory are required (keep them equal to the agent group limits)" }}
+{{- end }}
+{{- range $key := list "team-id" "controller-ips" "controller-port" "controller-tls-port" "controller-cert-file-prefix" "kubernetes-cluster-name" "vtap-group-id-request" "liveness-probe-port" }}
+{{- if hasKey $v.extraStaticConfig $key }}
+{{- fail (printf "extraStaticConfig must not set %s: the chart owns it" $key) }}
+{{- end }}
+{{- end }}
