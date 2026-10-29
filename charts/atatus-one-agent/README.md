@@ -62,4 +62,35 @@ To narrow it, which lowers the agent's CPU use, edit
 `processors.request_log.application_protocol_inference.enabled_protocols` in Atatus under Fleet → Groups → the
 group → Configuration. Agents take a new list when they restart (`kubectl rollout restart ds/atatus-one-agent`).
 
+## Transactions of URLs with ids in them
+
+An endpoint with an id in its path - `/payments/sim_3085`, `/payments/sim_8781` - would be one transaction per
+id, and a busy service makes millions of them. The agent does not name a transaction after the raw URL: it
+extracts an *endpoint* first, by longest-prefix match on the path and then keeping the first N segments, and
+names the transaction and its spans after that. The default is one rule, `url_prefix: ""` with
+`keep_segments: 2`, and `/payments/sim_3085` is two segments - which is why each id is its own transaction
+until you say otherwise.
+
+Like the protocol list this is agent group configuration, not a chart value: set it in Atatus under
+Fleet → Groups → the group → Configuration.
+
+```yaml
+processors:
+  request_log:
+    tag_extraction:
+      http_endpoint:
+        match_rules:
+        - url_prefix: ""
+          keep_segments: 2        # unchanged default for every other path
+        - url_prefix: /payments
+          keep_segments: 1        # /payments/sim_3085 -> /payments
+        - url_prefix: /payments/order
+          keep_segments: 2        # longest prefix wins, so this one stays separate
+```
+
+The rules are prefixes and segment counts, not patterns: there is no `{id}` placeholder, so a path like
+`/payments/{id}/refunds` needs its own longer-prefix rule to keep the `refunds` part. Transactions already
+recorded keep the names they were recorded with, and agents take new rules when they restart
+(`kubectl rollout restart ds/atatus-one-agent`).
+
 `tests/render_test.sh` checks the rendering and the validation (helm only, no cluster).
