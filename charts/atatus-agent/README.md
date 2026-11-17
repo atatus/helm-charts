@@ -152,6 +152,31 @@ helm upgrade atatus-agent atatus/atatus-agent -n atatus \
 The Deployment is removed and its work moves onto the elected DaemonSet agent.
 Expect a gap of up to one collection interval while the lease is first acquired.
 
+## Upgrading
+
+```console
+helm repo update atatus
+helm get values <release> -n <namespace> -o yaml > values.yaml
+helm upgrade <release> atatus/atatus-agent -n <namespace> -f values.yaml
+```
+
+Pass your values back with `-f`, not `--reuse-values`. `--reuse-values` also
+keeps the previous chart's defaults, including the agent's configuration
+templates (`daemonset.atatusConfig` and `deployment.atatusConfig`). The new
+chart then renders with stale settings, or fails outright: from 1.4.0 it stops
+at `nil pointer evaluating interface {}.enableGoMaxProcs`.
+
+**From 1.7.0 or older, go to 1.8.1 or later, not 1.8.0.** Upgrading to 1.8.0
+fails with `cannot change roleRef` on two RoleBindings. 1.8.1 gives those
+bindings new names, so Helm replaces them instead of patching them. If you are
+already on 1.8.0, or an upgrade to it failed, upgrading to 1.8.1 fixes that too.
+
+**Helm 4 and changes made with kubectl.** Helm 4 applies changes server-side, so
+it refuses to overwrite a field that another tool changed last, such as an image
+set with `kubectl set image`. The upgrade then fails with
+`conflict with "kubectl-set"`. Add `--force-conflicts` to let Helm take the
+field back.
+
 ## License
 
 The project is released under version 2.0 of the [Apache license](http://www.apache.org/licenses/LICENSE-2.0).

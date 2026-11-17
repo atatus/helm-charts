@@ -1,7 +1,12 @@
+# Charts up to 1.7.0 created these bindings under other names and pointed them
+# at a ClusterRole instead of the Roles in role.yaml. roleRef cannot be changed
+# on an existing binding, so reusing those names made upgrades fail with
+# "cannot change roleRef". New names make Helm create these bindings and delete
+# the old ones instead.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ template "atatus-agent.serviceAccount" . }}-role-binding
+  name: {{ template "atatus-agent.serviceAccount" . }}-role-rolebinding
   labels:
     app: "{{ template "atatus-agent.fullname" . }}"
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
@@ -19,7 +24,7 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ template "atatus-agent.serviceAccount" . }}-kubeadm-config
+  name: {{ template "atatus-agent.serviceAccount" . }}-kubeadm-config-rolebinding
   labels:
     app: "{{ template "atatus-agent.fullname" . }}"
     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
