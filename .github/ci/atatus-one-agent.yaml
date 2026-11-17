@@ -1,0 +1,9 @@
+# Values the release workflow lints and renders atatus-one-agent with.
+atatus:
+  license_key: "ci-license-key"
+  cluster_name: "ci"
+controller:
+  hosts: [agent.us1.atatus.com]
+  tlsPort: 443
+tls:
+  mode: system

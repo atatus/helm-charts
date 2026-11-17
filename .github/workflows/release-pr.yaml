@@ -1,0 +1,98 @@
+# Step 1 of a release. When a chart's version changes on main, package it and
+# open a PR that adds the package to packages/ and index.yaml.
+#
+# The PR is rebuilt from main on every run and force-pushed to one branch, so
+# do not push commits to that branch by hand. Once the PR is merged, publish
+# the release by pushing a tag (see publish.yaml).
+name: Release PR
+
+on:
+  push:
+    branches: [main]
+    paths: ["charts/*/Chart.yaml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+env:
+  HELM_VERSION: v3.18.3
+  RELEASE_BRANCH: bot/release
+
+jobs:
+  release-pr:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Package the charts whose version has no package yet
+        run: .github/scripts/package-charts.sh
+
+      - name: Open or update the release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add packages index.yaml
+          mapfile -t pkgs < <(git diff --cached --name-only --diff-filter=A -- packages/)
+          if (( ${#pkgs[@]} == 0 )); then
+            echo "Nothing to release."
+            exit 0
+          fi
+
+          tags=()
+          for pkg in "${pkgs[@]}"; do
+            tags+=("$(basename "$pkg" .tgz)")
+          done
+          title="release $(printf '%s, ' "${tags[@]}")"
+          title="${title%, }"
+
+          body="$RUNNER_TEMP/body.md"
+          {
+            echo "Packaged from \`main\` at ${GITHUB_SHA} by the Release PR workflow."
+            echo
+            for pkg in "${pkgs[@]}"; do
+              chart="$(helm show chart "$pkg")"
+              echo "- \`$(basename "$pkg")\`: version $(sed -n 's/^version: //p' <<<"$chart"), appVersion $(sed -n 's/^appVersion: //p' <<<"$chart")"
+            done
+            echo
+            echo "This branch is rebuilt from \`main\` on every run of the workflow; do not push to it."
+            echo
+            echo "### After merging"
+            echo
+            echo "Publish each release by tagging the merge commit with an annotated tag. The tag message becomes the"
+            echo "\"What's Changed\" list of the GitHub Release, so write it as \`*\` bullets: git's editor drops lines"
+            echo "that start with \`#\`."
+            echo
+            echo '```sh'
+            echo "git fetch origin"
+            for tag in "${tags[@]}"; do
+              echo "git tag -a $tag origin/main"
+              echo ".github/scripts/verify-release.sh $tag"
+              echo "git push origin $tag"
+            done
+            echo '```'
+          } > "$body"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$RELEASE_BRANCH"
+          git commit -q -m "$title" -m "Packaged from main at ${GITHUB_SHA} by the Release PR workflow."
+          git push --force origin "$RELEASE_BRANCH"
+
+          pr="$(gh pr list --head "$RELEASE_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$pr" ]]; then
+            gh api -X PATCH "repos/{owner}/{repo}/pulls/$pr" -f title="$title" -F body=@"$body" >/dev/null
+            echo "Updated PR #$pr: $title"
+          else
+            gh pr create --base main --head "$RELEASE_BRANCH" --title "$title" --body-file "$body"
+          fi
