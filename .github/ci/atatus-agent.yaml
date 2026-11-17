@@ -1,0 +1,4 @@
+# Values the release workflow lints and renders atatus-agent with.
+atatus:
+  license_key: "ci-license-key"
+  cluster_name: "ci"

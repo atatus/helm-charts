@@ -40,6 +40,21 @@ helm upgrade --recreate-pods test-release charts/atatus-agent -f ./atatus_values
 helm uninstall test-release
 ```
 
+### Releasing
+Two workflows automate releases, so never package by hand or regenerate `index.yaml`.
+
+1. A PR bumps `version` (and `appVersion`) in `charts/<chart>/Chart.yaml`. Once it merges, the **Release PR**
+   workflow (`.github/workflows/release-pr.yaml`) runs `.github/scripts/package-charts.sh` and opens a
+   `release <chart>-<version>` PR from `bot/release`. That PR adds `packages/<chart>-<version>.tgz` and its
+   entry in `index.yaml`. The script merges the entry into the existing index, so older entries keep their timestamps.
+2. Once that PR merges, a maintainer pushes an annotated tag `<chart>-<version>` on the merge commit, and the
+   tag message becomes the release notes. The **Publish** workflow (`publish.yaml`) checks the tag with
+   `.github/scripts/verify-release.sh`, fast-forwards `gh-pages` (what `https://atatus.github.io/helm-charts`
+   serves) to the tagged commit, and creates the GitHub Release with the package attached.
+
+The package reaches `main` through a PR because `main` requires a reviewed PR. Each chart's lint values are in
+`.github/ci/<chart>.yaml`; a new chart needs one if it fails to render on its defaults.
+
 ## Architecture
 
 ### Chart Structure

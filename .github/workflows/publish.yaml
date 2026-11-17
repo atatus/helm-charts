@@ -1,0 +1,67 @@
+# Step 2 of a release. Pushing an annotated tag <chart>-<version> on the merge
+# commit of a release PR publishes it:
+#
+#   - gh-pages, which https://atatus.github.io/helm-charts serves, is
+#     fast-forwarded to the tagged commit, so `helm repo update` sees the
+#     package;
+#   - a GitHub Release is created for the tag, with the package attached and
+#     the tag message as its "What's Changed" list.
+name: Publish
+
+on:
+  push:
+    tags:
+      - "*-[0-9]+.[0-9]+.[0-9]+"
+      - "*-[0-9]+.[0-9]+.[0-9]+-*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # actions/checkout replaces an annotated tag with a lightweight one,
+      # which loses the tag message.
+      - name: Fetch the annotated tag
+        run: git fetch --force origin "+refs/tags/${TAG}:refs/tags/${TAG}"
+
+      - name: Verify the tag
+        run: .github/scripts/verify-release.sh "$TAG"
+
+      - name: Fast-forward gh-pages to the tagged commit
+        run: |
+          sha="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          if git merge-base --is-ancestor "$sha" origin/gh-pages; then
+            echo "gh-pages already contains $sha."
+          else
+            git push origin "$sha:refs/heads/gh-pages"
+          fi
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "The release $TAG already exists."
+            exit 0
+          fi
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            echo "The all-in-one platform for collecting and visualizing metrics, traces and logs."
+            echo
+            echo "## What's Changed"
+            echo
+            git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN .*SIGNATURE-----$/,$d'
+          } > "$notes"
+          gh release create "$TAG" "packages/${TAG}.tgz" --verify-tag --title "$TAG" --notes-file "$notes"
